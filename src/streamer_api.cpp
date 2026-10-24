@@ -375,14 +375,12 @@ namespace StreamerApi
 		return true;
 	}
 
-	bool AttachPlayerObjectToObject(int playerid, int objectid, int attachToObjectId, float ox, float oy, float oz, float rX, float rY, float rZ, bool /*syncRotation*/)
+	bool AttachPlayerObjectToObject(int playerid, int objectid, int attachToObjectId, float ox, float oy, float oz, float rX, float rY, float rZ, bool syncRotation)
 	{
 		IPlayerObject *obj = playerObject(playerid, objectid);
 		IPlayerObject *base = playerObject(playerid, attachToObjectId);
 		if (!obj || !base) return false;
-		// open.mp's IPlayerObject::attachToObject has no separate syncRotation parameter;
-		// rotations always follow the attachment target.
-		obj->attachToObject(*base, Vector3(ox, oy, oz), Vector3(rX, rY, rZ));
+		obj->attachToObject(*base, Vector3(ox, oy, oz), Vector3(rX, rY, rZ), syncRotation);
 		return true;
 	}
 
