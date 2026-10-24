@@ -515,7 +515,41 @@ bool IStreamerComponent_isValidCheckpoint(int cpId)
 }
 
 // --- Attach helpers -------------------------------------------------------------------------
-// (объявление есть в streamer_component_api.h: attachObjectToObject/Player/Vehicle)
+// Mirrors AttachDynamicObjectTo* in src/natives/objects.cpp. Two things matter here:
+//  * the offset belongs in attach->positionOffset. attach->position is the attached object's
+//    world position, which the streamer recomputes every tick; an offset written there is
+//    simply lost and the child lands on its parent's origin.
+//  * players that already have the object streamed get the attachment right away. The
+//    streamer only attaches on stream-in, so without this an AttachTo on a visible object
+//    does nothing until it re-streams.
+
+static void reapplyObjectMaterials(int playerId, int internalId, const Item::SharedObject &object)
+{
+	for (auto m = object->materials.begin(); m != object->materials.end(); ++m)
+	{
+		if (m->second.main)
+		{
+			StreamerApi::SetPlayerObjectMaterial(playerId, internalId, m->first, m->second.main->modelId, m->second.main->txdFileName.c_str(), m->second.main->textureName.c_str(), m->second.main->materialColor);
+		}
+		else if (m->second.text)
+		{
+			StreamerApi::SetPlayerObjectMaterialText(playerId, internalId, m->second.text->materialText.c_str(), m->first, m->second.text->materialSize, m->second.text->fontFace.c_str(), m->second.text->fontSize, m->second.text->bold, m->second.text->fontColor, m->second.text->backColor, m->second.text->textAlignment);
+		}
+	}
+}
+
+static bool isAttachmentCycle(int childId, int parentId)
+{
+	int cursor = parentId;
+	for (int hops = 0; cursor != INVALID_STREAMER_ID; ++hops)
+	{
+		if (cursor == childId || hops >= 64) return true;
+		auto it = core->getData()->objects.find(cursor);
+		if (it == core->getData()->objects.end() || !it->second->attach) return false;
+		cursor = it->second->attach->object;
+	}
+	return false;
+}
 
 bool IStreamerComponent_attachObjectToObject(int objectId, int parentObjectId,
 	float offX, float offY, float offZ,
@@ -526,13 +560,33 @@ bool IStreamerComponent_attachObjectToObject(int objectId, int parentObjectId,
 	auto p = core->getData()->objects.find(parentObjectId);
 	if (o == core->getData()->objects.end() || p == core->getData()->objects.end()) return false;
 	if (o->second->move) return false;
-	if (!o->second->attach) o->second->attach = std::make_shared<Item::Object::Attach>();
+	if (objectId == parentObjectId || isAttachmentCycle(objectId, parentObjectId)) return false;
+
+	o->second->attach = std::make_shared<Item::Object::Attach>();
 	o->second->attach->object = parentObjectId;
 	o->second->attach->player = INVALID_PLAYER_ID;
 	o->second->attach->vehicle = INVALID_VEHICLE_ID;
-	o->second->attach->position = Eigen::Vector3f(offX, offY, offZ);
+	o->second->attach->positionOffset = Eigen::Vector3f(offX, offY, offZ);
 	o->second->attach->rotation = Eigen::Vector3f(rotX, rotY, rotZ);
 	o->second->attach->syncRotation = syncRotation;
+
+	for (auto pl = core->getData()->players.begin(); pl != core->getData()->players.end(); ++pl)
+	{
+		auto i = pl->second.internalObjects.find(o->first);
+		auto j = pl->second.internalObjects.find(parentObjectId);
+		if (i != pl->second.internalObjects.end() && j != pl->second.internalObjects.end())
+		{
+			StreamerApi::AttachPlayerObjectToObject(pl->first, i->second, j->second, offX, offY, offZ, rotX, rotY, rotZ, syncRotation);
+			reapplyObjectMaterials(pl->first, i->second, o->second);
+		}
+	}
+
+	// A child streams only while its parent does, so it inherits the parent's reach.
+	if (o->second->comparableStreamDistance > STREAMER_STATIC_DISTANCE_CUTOFF && p->second->comparableStreamDistance > STREAMER_STATIC_DISTANCE_CUTOFF)
+	{
+		o->second->originalComparableStreamDistance = o->second->comparableStreamDistance;
+		o->second->comparableStreamDistance = p->second->comparableStreamDistance + static_cast<float>(boost::geometry::comparable_distance(o->second->position, p->second->position));
+	}
 	core->getStreamer()->attachedObjects.insert(o->second);
 	return true;
 }
@@ -544,12 +598,23 @@ bool IStreamerComponent_attachObjectToPlayer(int objectId, int playerId,
 	auto o = core->getData()->objects.find(objectId);
 	if (o == core->getData()->objects.end()) return false;
 	if (o->second->move) return false;
-	if (!o->second->attach) o->second->attach = std::make_shared<Item::Object::Attach>();
-	o->second->attach->object = INVALID_OBJECT_ID;
+
+	o->second->attach = std::make_shared<Item::Object::Attach>();
+	o->second->attach->object = INVALID_STREAMER_ID;
 	o->second->attach->player = playerId;
 	o->second->attach->vehicle = INVALID_VEHICLE_ID;
-	o->second->attach->position = Eigen::Vector3f(offX, offY, offZ);
+	o->second->attach->positionOffset = Eigen::Vector3f(offX, offY, offZ);
 	o->second->attach->rotation = Eigen::Vector3f(rotX, rotY, rotZ);
+
+	for (auto pl = core->getData()->players.begin(); pl != core->getData()->players.end(); ++pl)
+	{
+		auto i = pl->second.internalObjects.find(o->first);
+		if (i != pl->second.internalObjects.end())
+		{
+			StreamerApi::AttachPlayerObjectToPlayer(pl->first, i->second, playerId, offX, offY, offZ, rotX, rotY, rotZ);
+			reapplyObjectMaterials(pl->first, i->second, o->second);
+		}
+	}
 	core->getStreamer()->attachedObjects.insert(o->second);
 	return true;
 }
@@ -561,12 +626,23 @@ bool IStreamerComponent_attachObjectToVehicle(int objectId, int vehicleId,
 	auto o = core->getData()->objects.find(objectId);
 	if (o == core->getData()->objects.end()) return false;
 	if (o->second->move) return false;
-	if (!o->second->attach) o->second->attach = std::make_shared<Item::Object::Attach>();
-	o->second->attach->object = INVALID_OBJECT_ID;
+
+	o->second->attach = std::make_shared<Item::Object::Attach>();
+	o->second->attach->object = INVALID_STREAMER_ID;
 	o->second->attach->player = INVALID_PLAYER_ID;
 	o->second->attach->vehicle = vehicleId;
-	o->second->attach->position = Eigen::Vector3f(offX, offY, offZ);
+	o->second->attach->positionOffset = Eigen::Vector3f(offX, offY, offZ);
 	o->second->attach->rotation = Eigen::Vector3f(rotX, rotY, rotZ);
+
+	for (auto pl = core->getData()->players.begin(); pl != core->getData()->players.end(); ++pl)
+	{
+		auto i = pl->second.internalObjects.find(o->first);
+		if (i != pl->second.internalObjects.end())
+		{
+			StreamerApi::AttachPlayerObjectToVehicle(pl->first, i->second, vehicleId, offX, offY, offZ, rotX, rotY, rotZ);
+			reapplyObjectMaterials(pl->first, i->second, o->second);
+		}
+	}
 	core->getStreamer()->attachedObjects.insert(o->second);
 	return true;
 }
