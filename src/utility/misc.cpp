@@ -338,6 +338,20 @@ bool Utility::setMaxVisibleItems(int type, std::size_t value, int playerid)
 	return core->getData()->setGlobalMaxVisibleItems(type, value);
 }
 
+bool Utility::updatePlayer(int playerid, int type)
+{
+	std::unordered_map<int, Player>::iterator p = core->getData()->players.find(playerid);
+	if (p == core->getData()->players.end())
+	{
+		return false;
+	}
+	p->second.interiorId = StreamerApi::GetPlayerInterior(p->first);
+	p->second.worldId = StreamerApi::GetPlayerVirtualWorld(p->first);
+	StreamerApi::GetPlayerPos(p->first, &p->second.position[0], &p->second.position[1], &p->second.position[2]);
+	core->getStreamer()->startManualUpdate(p->second, type);
+	return true;
+}
+
 float Utility::getRadiusMultiplier(int type, int playerid)
 {
 	if (type >= 0 && type < STREAMER_MAX_TYPES)

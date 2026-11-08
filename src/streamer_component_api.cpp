@@ -1070,6 +1070,32 @@ public:
 		auto &list = handlerList();
 		list.erase(std::remove(list.begin(), list.end(), h), list.end());
 	}
+
+	int getVisibleItems(int type, int playerId) override
+	{
+		return static_cast<int>(Utility::getMaxVisibleItems(type, playerId));
+	}
+
+	bool setVisibleItems(int type, int items, int playerId) override
+	{
+		if (items < 0) return false;
+		return Utility::setMaxVisibleItems(type, static_cast<std::size_t>(items), playerId);
+	}
+
+	float getRadiusMultiplier(int type, int playerId) override
+	{
+		return Utility::getRadiusMultiplier(type, playerId);
+	}
+
+	bool setRadiusMultiplier(int type, float multiplier, int playerId) override
+	{
+		return Utility::setRadiusMultiplier(type, multiplier, playerId);
+	}
+
+	bool updatePlayer(int playerId, int type) override
+	{
+		return Utility::updatePlayer(playerId, type);
+	}
 };
 
 static StreamerExtension g_streamerExtension;

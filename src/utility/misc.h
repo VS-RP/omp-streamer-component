@@ -39,6 +39,8 @@ namespace Utility
 	float getRadiusMultiplier(int type, int playerid);
 	bool setRadiusMultiplier(int type, float value, int playerid);
 
+	bool updatePlayer(int playerid, int type);
+
 	void processPendingDestroyedActors();
 
 	template<typename T>
