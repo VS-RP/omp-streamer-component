@@ -25,7 +25,7 @@ On Linux/GCC drop `-A Win32` and set `-DCMAKE_CXX_FLAGS=-m32 -DCMAKE_C_FLAGS=-m3
 
 ## Pawn API
 
-The include file [`streamer.inc`](streamer.inc) and natives are unchanged — existing gamemodes written against Incognito's streamer keep working. Anything you relied on that ultimately called into SA-MP still works because the native invocation goes through open.mp's Pawn component.
+The include file [`streamer.inc`](streamer.inc) and natives are unchanged, so existing gamemodes written against Incognito's streamer keep working. Anything you relied on that ultimately called into SA-MP still works because the native invocation goes through open.mp's Pawn component.
 
 ## Documentation
 
@@ -36,4 +36,4 @@ Pawn-level documentation lives on the original [wiki](https://github.com/samp-in
 
 ## License
 
-Apache 2.0 — see [LICENSE.md](LICENSE.md). Retains the original Incognito copyright on streamer logic; additional porting work is under the same license.
+Apache 2.0, see [LICENSE.md](LICENSE.md). Retains the original Incognito copyright on streamer logic; additional porting work is under the same license.

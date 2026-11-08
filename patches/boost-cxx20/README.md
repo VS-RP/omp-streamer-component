@@ -12,7 +12,7 @@ Boost header still comes from the pristine submodule.
 `boost/numeric/conversion/{int_float_mixture,sign_mixture,udt_builtin_mixture}_enum.hpp`
 
 Each enum gained a **fixed underlying type** (`: int`). Boost's `mpl::integral_c`
-machinery does `static_cast<the_enum>(value - 1)`, which yields `-1` — outside the
+machinery does `static_cast<the_enum>(value - 1)`, which yields `-1`, outside the
 enum's value range. For an unscoped enum **without** a fixed underlying type that is
 a non-constant expression in C++20, so clang rejects it as a non-type template
 argument (`error: non-type template argument is not a constant expression`). With a

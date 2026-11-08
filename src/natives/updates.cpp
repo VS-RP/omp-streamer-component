@@ -110,16 +110,7 @@ cell AMX_NATIVE_CALL Natives::Streamer_GetLastUpdateTime(AMX *amx, cell *params)
 cell AMX_NATIVE_CALL Natives::Streamer_Update(AMX *amx, cell *params)
 {
 	CHECK_PARAMS(2);
-	std::unordered_map<int, Player>::iterator p = core->getData()->players.find(static_cast<int>(params[1]));
-	if (p != core->getData()->players.end())
-	{
-		p->second.interiorId = StreamerApi::GetPlayerInterior(p->first);
-		p->second.worldId = StreamerApi::GetPlayerVirtualWorld(p->first);
-		StreamerApi::GetPlayerPos(p->first, &p->second.position[0], &p->second.position[1], &p->second.position[2]);
-		core->getStreamer()->startManualUpdate(p->second, static_cast<int>(params[2]));
-		return 1;
-	}
-	return 0;
+	return static_cast<cell>(Utility::updatePlayer(static_cast<int>(params[1]), static_cast<int>(params[2])));
 }
 
 cell AMX_NATIVE_CALL Natives::Streamer_UpdateEx(AMX *amx, cell *params)

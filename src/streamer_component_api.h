@@ -279,6 +279,21 @@ struct IStreamerComponent : public IExtension
 	virtual void addEventHandler(IStreamerEventHandler* handler) = 0;
 	virtual void removeEventHandler(IStreamerEventHandler* handler) = 0;
 
+	// ============================================================================
+	// Per-player streaming settings (OpenRP fork). The same as the Streamer_*VisibleItems,
+	// Streamer_*RadiusMultiplier and Streamer_Update natives. `type` is one of
+	// STREAMER_TYPE_*; playerId -1 means every player, like the natives.
+	// Appended after every other method, so the existing vtable layout is unchanged.
+	// ============================================================================
+
+	virtual int getVisibleItems(int type, int playerId) = 0;
+	virtual bool setVisibleItems(int type, int items, int playerId) = 0;
+	virtual float getRadiusMultiplier(int type, int playerId) = 0;
+	virtual bool setRadiusMultiplier(int type, float multiplier, int playerId) = 0;
+	/// Streams the player's surroundings right away (type -1 = all types).
+	/// Returns false when the streamer doesn't know the player.
+	virtual bool updatePlayer(int playerId, int type) = 0;
+
 	// IExtension
 	void reset() override { /* streamer handles its own reset via Core; no-op here */ }
 };
